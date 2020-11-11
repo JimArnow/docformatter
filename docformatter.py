@@ -669,13 +669,14 @@ def _main(argv, standard_out, standard_error, standard_in):
                         default=None, type=int, nargs=2,
                         help='apply docformatter to docstrings between these '
                              'lines; line numbers are indexed at 1')
-    parser.add_argument('--version', action='version',
-                        version='%(prog)s ' + __version__)
     parser.add_argument('--given-when-then',
                         action='store_true',
                         help='Reformat Given:, When:, Then: into :Given:, :When:, :Then: '
                              'to support parsing as reStructuredText Field List in the docs.'
                         )
+    parser.add_argument('--version', action='version',
+                        version='%(prog)s ' + __version__)
+
     parser.add_argument('files', nargs='+',
                         help="files to format or '-' for standard in")
 
