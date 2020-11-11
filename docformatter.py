@@ -91,7 +91,8 @@ def _format_code(source,
                  make_summary_multi_line=False,
                  post_description_blank=False,
                  force_wrap=False,
-                 line_range=None):
+                 line_range=None,
+                 given_when_then=False,):
     """Return source code with docstrings formatted."""
     if not source:
         return source
@@ -110,6 +111,7 @@ def _format_code(source,
 
     sio = io.StringIO(source)
     previous_token_string = ''
+    previous_token_line = ''
     previous_token_type = None
     only_comments_so_far = True
 
@@ -131,6 +133,8 @@ def _format_code(source,
             else:
                 indentation = previous_token_string
 
+            fix_given_when_then = given_when_then and previous_token_line.strip().startswith("def test_")
+
             token_string = format_docstring(
                 indentation,
                 token_string,
@@ -139,13 +143,16 @@ def _format_code(source,
                 pre_summary_newline=pre_summary_newline,
                 make_summary_multi_line=make_summary_multi_line,
                 post_description_blank=post_description_blank,
-                force_wrap=force_wrap)
+                force_wrap=force_wrap,
+                fix_given_when_then=fix_given_when_then,
+            )
 
         if token_type not in [tokenize.COMMENT, tokenize.NEWLINE, tokenize.NL]:
             only_comments_so_far = False
 
         previous_token_string = token_string
         previous_token_type = token_type
+        previous_token_line = line
 
         modified_tokens.append(
             (token_type, token_string, start, end, line))
@@ -159,7 +166,9 @@ def format_docstring(indentation, docstring,
                      pre_summary_newline=False,
                      make_summary_multi_line=False,
                      post_description_blank=False,
-                     force_wrap=False):
+                     force_wrap=False,
+                     fix_given_when_then=False,
+                     ):
     """Return formatted version of docstring.
 
     Wrap summary lines if summary_wrap_length is greater than 0.
@@ -172,8 +181,16 @@ def format_docstring(indentation, docstring,
           description.
         - Unless the entire docstring fits on a line, place the closing quotes
           on a line by themselves.
+
+    Replace Given:, When:, Then: with :Given:, :When:, :Then: to format as a reStructuredText
+    Field List.
     """
     contents = strip_docstring(docstring)
+    print(f"{contents=}")
+
+    if fix_given_when_then:
+        print(f"LOOKING! {contents}")
+        contents = format_given_when_then(contents)
 
     # Skip if there are nested triple double quotes
     if contents.count('"""'):
@@ -250,6 +267,16 @@ def reindent(text, indentation):
     return '\n'.join(
         [(indentation + line).rstrip()
          for line in text.splitlines()]).rstrip() + '\n'
+
+
+def format_given_when_then(text: str) -> str:
+    """If Given:, When: or Then: are in string, replace with :Given:, :When:, :Then:"""
+    for string in ['Given', 'When', 'Then']:
+        # Find all occurrences of incorrect version
+        if re.search(string + ':', text) and not re.search(':' + string + ':', text):
+            print(f"FOUND ONE! {string} is in {text}")
+            text.replace(string, ':' + string)
+    return text
 
 
 def is_probably_beginning_of_sentence(line):
@@ -594,7 +621,9 @@ def _format_code_with_args(source, args):
         make_summary_multi_line=args.make_summary_multi_line,
         post_description_blank=args.post_description_blank,
         force_wrap=args.force_wrap,
-        line_range=args.line_range)
+        line_range=args.line_range,
+        given_when_then=args.given_when_then,
+    )
 
 
 def _main(argv, standard_out, standard_error, standard_in):
@@ -642,6 +671,11 @@ def _main(argv, standard_out, standard_error, standard_in):
                              'lines; line numbers are indexed at 1')
     parser.add_argument('--version', action='version',
                         version='%(prog)s ' + __version__)
+    parser.add_argument('--given-when-then',
+                        action='store_true',
+                        help='Reformat Given:, When:, Then: into :Given:, :When:, :Then: '
+                             'to support parsing as reStructuredText Field List in the docs.'
+                        )
     parser.add_argument('files', nargs='+',
                         help="files to format or '-' for standard in")
 
