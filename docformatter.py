@@ -111,7 +111,6 @@ def _format_code(source,
 
     sio = io.StringIO(source)
     previous_token_string = ''
-    previous_token_line = ''
     previous_token_type = None
     only_comments_so_far = True
 
@@ -133,8 +132,6 @@ def _format_code(source,
             else:
                 indentation = previous_token_string
 
-            fix_given_when_then = given_when_then and previous_token_line.strip().startswith("def test_")
-
             token_string = format_docstring(
                 indentation,
                 token_string,
@@ -144,7 +141,7 @@ def _format_code(source,
                 make_summary_multi_line=make_summary_multi_line,
                 post_description_blank=post_description_blank,
                 force_wrap=force_wrap,
-                fix_given_when_then=fix_given_when_then,
+                fix_given_when_then=given_when_then,
             )
 
         if token_type not in [tokenize.COMMENT, tokenize.NEWLINE, tokenize.NL]:
@@ -152,7 +149,6 @@ def _format_code(source,
 
         previous_token_string = token_string
         previous_token_type = token_type
-        previous_token_line = line
 
         modified_tokens.append(
             (token_type, token_string, start, end, line))
@@ -167,7 +163,7 @@ def format_docstring(indentation, docstring,
                      make_summary_multi_line=False,
                      post_description_blank=False,
                      force_wrap=False,
-                     fix_given_when_then=False,
+                     fix_given_when_then=True,
                      ):
     """Return formatted version of docstring.
 
@@ -183,13 +179,11 @@ def format_docstring(indentation, docstring,
           on a line by themselves.
 
     Replace Given:, When:, Then: with :Given:, :When:, :Then: to format as a reStructuredText
-    Field List.
+    Field List if fix_given_when_then is True.
     """
     contents = strip_docstring(docstring)
-    print(f"{contents=}")
 
     if fix_given_when_then:
-        print(f"LOOKING! {contents}")
         contents = format_given_when_then(contents)
 
     # Skip if there are nested triple double quotes
@@ -274,8 +268,7 @@ def format_given_when_then(text: str) -> str:
     for string in ['Given', 'When', 'Then']:
         # Find all occurrences of incorrect version
         if re.search(string + ':', text) and not re.search(':' + string + ':', text):
-            print(f"FOUND ONE! {string} is in {text}")
-            text.replace(string, ':' + string)
+            text = text.replace(string, ':' + string)
     return text
 
 
@@ -814,5 +807,4 @@ def main():
 
 
 if __name__ == '__main__':
-    print("running hook")
     sys.exit(main())
